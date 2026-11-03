@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkSentry | URL Security Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #080d18;
+            color: #e8edf7;
+            font-family: Arial, sans-serif;
+            padding: 30px 18px;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 50px auto;
+        }
+
+        .brand {
+            color: #54e0b5;
+            font-size: 25px;
+            font-weight: bold;
+            margin-bottom: 55px;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .hero h1 {
+            font-size: clamp(32px, 6vw, 48px);
+            margin-bottom: 15px;
+        }
+
+        .hero h1 span {
+            color: #54e0b5;
+        }
+
+        .hero p {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        .scanner {
+            background: #111a2a;
+            border: 1px solid #26364b;
+            border-radius: 18px;
+            padding: 28px;
+        }
+
+        input {
+            width: 100%;
+            padding: 17px;
+            border-radius: 10px;
+            border: 1px solid #34445c;
+            background: #080d18;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #54e0b5;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 15px;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            background: #54e0b5;
+            color: #071510;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #35c99d;
+        }
+
+        #status {
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 18px;
+        }
+
+        .result {
+            display: none;
+            margin-top: 25px;
+            padding: 22px;
+            background: #0b1321;
+            border: 1px solid #26364b;
+            border-radius: 12px;
+        }
+
+        .result h2 {
+            margin-bottom: 18px;
+        }
+
+        .score {
+            font-size: 38px;
+            font-weight: bold;
+            color: #54e0b5;
+        }
+
+        .issues {
+            margin-top: 20px;
+            color: #cbd5e1;
+            line-height: 2;
+        }
+
+        .footer {
+            text-align: center;
+            color: #64748b;
+            margin-top: 40px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <div class="brand">⬡ LinkSentry</div>
+
+        <section class="hero">
+            <h1>Is your URL <span>safe?</span></h1>
+            <p>Analyze suspicious links and identify potential security risks.</p>
+        </section>
+
+        <section class="scanner">
+            <input
+                type="text"
+                id="urlInput"
+                placeholder="https://example.com"
+            >
+
+            <button id="scanButton" onclick="scanURL()">
+                Scan URL →
+            </button>
+
+            <p id="status">Enter a URL to begin security analysis.</p>
+
+            <div class="result" id="result">
+                <h2>Security Report</h2>
+                <p>Risk Score</p>
+                <div class="score" id="score">0/100</div>
+                <p id="riskLevel"></p>
+
+                <div class="issues" id="issues"></div>
+            </div>
+        </section>
+
+        <div class="footer">
+            LinkSentry — Educational URL Security Analysis Tool
+        </div>
+    </div>
+
+    <script>
+        async function scanURL() {
+            const url = document.getElementById("urlInput").value.trim();
+            const status = document.getElementById("status");
+            const resultBox = document.getElementById("result");
+            const button = document.getElementById("scanButton");
+
+            if (!url) {
+                status.textContent = "Please enter a URL first.";
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = "Analyzing...";
+            status.textContent = "Scanning URL patterns...";
+            resultBox.style.display = "none";
+
+            try {
+                const response = await fetch("/scan", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Scan failed");
+                }
+
+                document.getElementById("score").textContent =
+                    data.risk_score + "/100";
+
+                document.getElementById("riskLevel").textContent =
+                    "Risk Level: " + data.risk_level;
+
+                const issues = document.getElementById("issues");
+                issues.replaceChildren();
+
+                if (data.issues.length === 0) {
+                    issues.textContent = "No suspicious patterns detected.";
+                } else {
+                    data.issues.forEach(issue => {
+                        const item = document.createElement("p");
+                        item.textContent = "• " + issue;
+                        issues.appendChild(item);
+                    });
+                }
+
+                resultBox.style.display = "block";
+                status.textContent = "Analysis complete.";
+
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = "Scan URL →";
+            }
+        }
+    </script>
+</body>
+</html>
