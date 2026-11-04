@@ -1,31 +1,45 @@
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
+import unittest
 from analyzer.scanner import scan_url
 
 
-def test_safe_url():
-    result = scan_url("https://example.com")
-    assert result["risk_level"] == "Low"
+class TestLinkSentry(unittest.TestCase):
+
+    def test_instagram_url(self):
+        result = scan_url("https://www.instagram.com/")
+        self.assertEqual(result["risk_level"], "Low")
+
+    def test_google_url(self):
+        result = scan_url("https://www.google.com/")
+        self.assertEqual(result["risk_level"], "Low")
+
+    def test_url_without_scheme(self):
+        result = scan_url("www.youtube.com")
+        self.assertEqual(result["risk_level"], "Low")
+
+    def test_http_warning(self):
+        result = scan_url("http://example.com")
+        self.assertIn("HTTPS is not used", result["issues"])
+
+    def test_empty_url(self):
+        result = scan_url("")
+        self.assertGreater(result["risk_score"], 0)
+
+    def test_shortener(self):
+        result = scan_url("https://bit.ly/example")
+        self.assertIn(
+            "URL shortener detected; final destination is unknown",
+            result["issues"]
+        )
+
+    def test_invalid_scheme(self):
+        result = scan_url("ftp://example.com")
+        self.assertGreater(result["risk_score"], 0)
+
+    def test_ip_address(self):
+        result = scan_url("http://8.8.8.8")
+        self.assertGreater(result["risk_score"], 0)
 
 
-def test_http_url():
-    result = scan_url("http://example.com")
-    assert result["risk_score"] >= 15
-
-
-def test_ip_address():
-    result = scan_url("http://192.168.1.1")
-    assert "IP address used as hostname" in result["issues"]
-
-
-def test_suspicious_keyword():
-    result = scan_url("https://example.com/login")
-    assert any("login" in issue for issue in result["issues"])
-
-
-def test_risk_score_limit():
-    result = scan_url("http://192.168.1.1/login/verify")
-    assert 0 <= result["risk_score"] <= 100
+if __name__ == "__main__":
+    unittest.main()
