@@ -5,204 +5,144 @@ from urllib.parse import urlsplit, unquote
 
 
 SHORTENERS = {
-    "bit.ly",
-    "tinyurl.com",
-    "t.co",
-    "is.gd",
-    "cutt.ly",
-    "shorturl.at",
-    "rebrand.ly",
-    "ow.ly",
-    "buff.ly",
-    "rb.gy",
+    "bit.ly", "tinyurl.com", "t.co", "is.gd",
+    "cutt.ly", "shorturl.at", "rebrand.ly",
+    "ow.ly", "buff.ly", "rb.gy"
 }
 
 SUSPICIOUS_WORDS = {
-    "password",
-    "verify",
-    "account-suspended",
-    "wallet-connect",
-    "signin",
-    "credential",
-    "confirm-account",
-    "login",
+    "password", "verify", "account-suspended",
+    "wallet-connect", "signin", "credential",
+    "confirm-account", "login"
 }
 
 
 def scan_url(url):
-    result = {
-        "url": url,
-        "risk_score": 0,
-        "risk_level": "Low",
-        "issues": []
-    }
+    issues = []
+    findings = []
+    score = 0
 
-    def add_issue(message, points):
-        result["issues"].append(message)
-        result["risk_score"] += points
+    def add_finding(message, points, severity):
+        nonlocal score
+        issues.append(message)
+        findings.append({
+            "message": message,
+            "points": points,
+            "severity": severity
+        })
+        score += points
 
-    # 1. Basic input validation
+    def result(level, details=None):
+        return {
+            "url": url,
+            "risk_score": min(score, 100),
+            "risk_level": level,
+            "issues": issues,
+            "findings": findings,
+            "details": details or {}
+        }
+
     if not isinstance(url, str) or not url.strip():
-        add_issue("Empty or invalid URL input", 40)
-        result["risk_level"] = "Medium"
-        return result
+        add_finding("URL is empty", 40, "high")
+        return result("High")
 
     url = url.strip()
-    result["url"] = url
 
-    # 2. URL length validation
     if len(url) > 4096:
-        add_issue("URL is unusually long", 15)
-        result["risk_score"] = min(result["risk_score"], 100)
-        result["risk_level"] = "Medium"
-        return result
+        add_finding("URL is unusually long", 15, "medium")
+        return result("Low")
 
-    # 3. Control character validation
-    if any(ord(char) < 32 or ord(char) == 127 for char in url):
-        add_issue("URL contains invalid control characters", 40)
-        result["risk_level"] = "Medium"
-        return result
+    if any(ord(char) < 32 for char in url):
+        add_finding("URL contains control characters", 20, "medium")
 
-    # 4. Whitespace validation
-    if any(char.isspace() for char in url):
-        add_issue("URL contains whitespace", 20)
-        result["risk_level"] = "Medium"
-        return result
-
-    # 5. Support URLs without a scheme
-    normalized = url if "://" in url else "https://" + url
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        url = "https://" + url
 
     try:
-        parsed = urlsplit(normalized)
-        hostname = parsed.hostname
-
-        if parsed.scheme.lower() not in ("http", "https"):
-            raise ValueError("Unsupported URL scheme")
-
-        if not hostname:
-            raise ValueError("Missing hostname")
-
-        # 6. Port validation
+        parsed = urlsplit(url)
+        hostname = (parsed.hostname or "").lower()
         port = parsed.port
+    except ValueError:
+        add_finding("Invalid URL format", 40, "high")
+        return result("High")
 
-        # 7. Embedded credentials check
-        if parsed.username is not None or parsed.password is not None:
-            add_issue(
-                "URL contains embedded username or password",
-                25
-            )
+    if not hostname:
+        add_finding("Invalid or missing hostname", 40, "high")
+        return result("High")
 
-        hostname = hostname.lower().rstrip(".")
+    details = {
+        "protocol": parsed.scheme.lower(),
+        "hostname": hostname,
+        "port": port or (443 if parsed.scheme == "https" else 80),
+        "path": parsed.path or "/",
+        "query_present": bool(parsed.query),
+        "fragment_present": bool(parsed.fragment)
+    }
 
-        # 8. IP address analysis
-        try:
-            ip = ipaddress.ip_address(hostname)
+    if parsed.scheme.lower() not in ("http", "https"):
+        add_finding("Unsupported URL protocol", 30, "high")
 
-            if not ip.is_global:
-                add_issue(
-                    "IP address used as hostname",
-                    30
-                )
-            else:
-                add_issue(
-                    "IP address used as hostname",
-                    20
-                )
+    if parsed.scheme.lower() != "https":
+        add_finding("HTTPS is not used", 15, "medium")
 
-        except ValueError:
+    if "@" in parsed.netloc:
+        add_finding("URL contains an @ symbol", 20, "high")
 
-            # 9. Domain name validation
-            try:
-                ascii_hostname = hostname.encode("idna").decode("ascii")
-            except UnicodeError:
-                raise ValueError("Invalid international domain")
+    try:
+        ipaddress.ip_address(hostname)
+        add_finding("IP address used as hostname", 25, "high")
 
-            labels = ascii_hostname.split(".")
-
-            if len(ascii_hostname) > 253:
-                raise ValueError("Hostname is too long")
-
-            if any(
-                not label
-                or len(label) > 63
-                or not re.fullmatch(
-                    r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?",
-                    label
-                )
-                for label in labels
-            ):
-                raise ValueError("Invalid hostname")
-
-            if hostname == "localhost" or hostname.endswith(".localhost"):
-                add_issue("Localhost address detected", 30)
-
-            if any(label.startswith("xn--") for label in labels):
-                add_issue(
-                    "Internationalized or punycode domain detected",
-                    15
-                )
-
-            if len(labels) > 4:
-                add_issue("Unusually many subdomains", 15)
-
-        # 10. HTTPS check
-        if parsed.scheme.lower() != "https":
-            add_issue("HTTPS is not used", 15)
-
-        # 11. URL shortener detection
-        if hostname in SHORTENERS:
-            add_issue(
-                "URL shortener detected; final destination is unknown",
-                15
-            )
-
-        # 12. Suspicious authority check
-        if "@" in parsed.netloc:
-            add_issue(
-                "URL contains an @ symbol in its authority",
-                20
-            )
-
-        # 13. Suspicious keyword detection
-        decoded_url = unquote(normalized).lower()
-
-        for word in SUSPICIOUS_WORDS:
-            if word in decoded_url:
-                add_issue(
-                    f"Suspicious keyword detected: {word}",
-                    10
-                )
-
-        # 14. Encoded path detection
-        if "%" in parsed.path and re.search(
-            r"%[0-9a-f]{2}",
-            parsed.path,
-            re.I
-        ):
-            add_issue(
-                "URL contains encoded path characters",
-                5
-            )
-
-        # 15. Non-standard port detection
-        if port and port not in (80, 443):
-            add_issue(
-                f"Non-standard port detected: {port}",
-                10
-            )
+        if not ipaddress.ip_address(hostname).is_global:
+            add_finding("Non-public IP address detected", 20, "high")
 
     except ValueError:
-        add_issue("Invalid URL format or hostname", 40)
+        labels = hostname.split(".")
 
-    # 16. Risk score limit
-    result["risk_score"] = min(result["risk_score"], 100)
+        if len(labels) < 2:
+            add_finding("Hostname has no recognizable domain extension", 15, "medium")
 
-    # 17. Risk classification
-    if result["risk_score"] >= 60:
-        result["risk_level"] = "High"
-    elif result["risk_score"] >= 30:
-        result["risk_level"] = "Medium"
+        if any(
+            not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+            for label in labels
+        ):
+            add_finding("Hostname contains suspicious characters", 20, "high")
+
+    if hostname in SHORTENERS:
+        add_finding(
+            "URL shortener detected; final destination is unknown",
+            20,
+            "medium"
+        )
+
+    if hostname.count(".") > 4:
+        add_finding("Unusually many subdomains detected", 15, "medium")
+
+    if port and port not in (80, 443):
+        add_finding("Non-standard port detected", 10, "medium")
+
+    decoded_url = unquote(url).lower()
+
+    for word in SUSPICIOUS_WORDS:
+        if word in decoded_url:
+            add_finding(
+                f"Suspicious keyword detected: {word}",
+                10,
+                "medium"
+            )
+
+    if re.search(r"%[0-9a-fA-F]{2}", url):
+        add_finding("URL contains encoded characters", 5, "low")
+
+    if len(parsed.path) > 150:
+        add_finding("Unusually long URL path", 10, "medium")
+
+    score = min(score, 100)
+
+    if score >= 60:
+        level = "High"
+    elif score >= 30:
+        level = "Medium"
     else:
-        result["risk_level"] = "Low"
+        level = "Low"
 
-    return result
+    return result(level, details)

@@ -2,237 +2,616 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="google-site-verification" content="vMBawatzVn-G7whzf6sIzoz4Ow7Sv4aD-jpuxffBzGg" />
+<title>LinkSentry — URL Security Scanner</title>
 
-    <meta name="google-site-verification" content="vMBawatzVn-G7whzf6sIzoz4Ow7Sv4aD-jpuxffBzGg" />
+<style>
+:root {
+    --bg: #080e18;
+    --panel: #101b2b;
+    --border: #223248;
+    --text: #eaf2ff;
+    --muted: #91a2b9;
+    --green: #43e0b0;
+    --red: #ff647c;
+    --yellow: #ffc66d;
+}
 
-    <title>LinkSentry | URL Security Scanner</title>
+* { box-sizing: border-box; }
 
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+body {
+    margin: 0;
+    background:
+        radial-gradient(circle at 50% 0%, #17334a 0, transparent 38%),
+        var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100vh;
+}
 
-        body {
-            min-height: 100vh;
-            background: #080d18;
-            color: #e8edf7;
-            font-family: Arial, sans-serif;
-            padding: 30px 18px;
-        }
+header {
+    max-width: 1100px;
+    margin: auto;
+    padding: 25px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
 
-        .container {
-            max-width: 850px;
-            margin: 50px auto;
-        }
+.logo {
+    font-size: 23px;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
 
-        .brand {
-            color: #54e0b5;
-            font-size: 25px;
-            font-weight: bold;
-            margin-bottom: 55px;
-        }
+.logo span { color: var(--green); }
 
-        .hero {
-            text-align: center;
-            margin-bottom: 35px;
-        }
+.status {
+    color: var(--green);
+    font-size: 12px;
+    border: 1px solid #285c51;
+    padding: 8px 12px;
+    border-radius: 30px;
+}
 
-        .hero h1 {
-            font-size: clamp(32px, 6vw, 48px);
-            margin-bottom: 15px;
-        }
+main {
+    width: min(900px, 92%);
+    margin: 65px auto;
+}
 
-        .hero h1 span {
-            color: #54e0b5;
-        }
+.hero { text-align: center; }
 
-        .hero p {
-            color: #94a3b8;
-            line-height: 1.6;
-        }
+.eyebrow {
+    color: var(--green);
+    letter-spacing: 3px;
+    font-size: 11px;
+    font-weight: bold;
+}
 
-        .scanner {
-            background: #111a2a;
-            border: 1px solid #26364b;
-            border-radius: 18px;
-            padding: 28px;
-        }
+h1 {
+    font-size: clamp(35px, 6vw, 57px);
+    margin: 18px 0 12px;
+    letter-spacing: -2px;
+}
 
-        input {
-            width: 100%;
-            padding: 17px;
-            border-radius: 10px;
-            border: 1px solid #34445c;
-            background: #080d18;
-            color: white;
-            font-size: 16px;
-            outline: none;
-        }
+.subtitle {
+    color: var(--muted);
+    line-height: 1.7;
+}
 
-        input:focus {
-            border-color: #54e0b5;
-        }
+.scanner {
+    margin-top: 38px;
+    padding: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    display: flex;
+    gap: 10px;
+}
 
-        button {
-            width: 100%;
-            margin-top: 15px;
-            padding: 16px;
-            border: none;
-            border-radius: 10px;
-            background: #54e0b5;
-            color: #071510;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+input {
+    min-width: 0;
+    flex: 1;
+    padding: 17px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 15px;
+}
 
-        button:hover {
-            background: #35c99d;
-        }
+button {
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    border-radius: 10px;
+    transition: .2s;
+}
 
-        #status {
-            color: #94a3b8;
-            text-align: center;
-            margin-top: 18px;
-        }
+button:hover { transform: translateY(-2px); }
 
-        .result {
-            display: none;
-            margin-top: 25px;
-            padding: 22px;
-            background: #0b1321;
-            border: 1px solid #26364b;
-            border-radius: 12px;
-        }
+#scanBtn {
+    background: var(--green);
+    color: #07150f;
+    padding: 0 25px;
+}
 
-        .result h2 {
-            margin-bottom: 18px;
-        }
+.panel {
+    margin-top: 25px;
+    background: rgba(16,27,43,.94);
+    border: 1px solid var(--border);
+    border-radius: 17px;
+    padding: 25px;
+}
 
-        .score {
-            font-size: 38px;
-            font-weight: bold;
-            color: #54e0b5;
-        }
+.hidden { display: none !important; }
 
-        .issues {
-            margin-top: 20px;
-            color: #cbd5e1;
-            line-height: 2;
-        }
+.resultTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
 
-        .footer {
-            text-align: center;
-            color: #64748b;
-            margin-top: 40px;
-            font-size: 13px;
-        }
-    </style>
+.resultTop h2 { margin: 0; }
+
+.riskBadge {
+    padding: 8px 14px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.low { background: #143d34; color: var(--green); }
+.medium { background: #493719; color: var(--yellow); }
+.high { background: #4a202c; color: var(--red); }
+
+.scoreArea {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.scoreCircle {
+    width: 115px;
+    height: 115px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: conic-gradient(var(--green) 0deg, #26394c 0deg);
+    position: relative;
+}
+
+.scoreCircle::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    background: var(--panel);
+    border-radius: 50%;
+}
+
+.scoreNumber {
+    z-index: 1;
+    font-size: 30px;
+    font-weight: 800;
+}
+
+.scoreText { color: var(--muted); font-size: 13px; }
+
+.sectionTitle {
+    font-size: 14px;
+    margin: 25px 0 13px;
+    color: #c7d6e8;
+}
+
+.detailsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.detail {
+    padding: 14px;
+    border-radius: 10px;
+    background: #0b1523;
+    border: 1px solid var(--border);
+    min-width: 0;
+}
+
+.detail small {
+    color: var(--muted);
+    display: block;
+    margin-bottom: 7px;
+}
+
+.detail strong {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.finding {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 9px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.finding span:first-child { overflow-wrap: anywhere; }
+
+.severity {
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.severity.high { color: var(--red); background: none; }
+.severity.medium { color: var(--yellow); background: none; }
+.severity.low { color: var(--green); background: none; }
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.secondary {
+    background: #1b2b40;
+    color: white;
+    padding: 12px 17px;
+}
+
+.historyItem {
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.historyItem:last-child { border: none; }
+
+.historyUrl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+    color: #c7d6e8;
+}
+
+.error {
+    color: var(--red);
+    text-align: center;
+    margin-top: 15px;
+    font-size: 13px;
+}
+
+footer {
+    text-align: center;
+    color: var(--muted);
+    padding: 35px 15px;
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 70px;
+}
+
+@media(max-width:600px) {
+    main { margin-top: 40px; }
+    .scanner { flex-direction: column; }
+    #scanBtn { padding: 16px; }
+    .detailsGrid { grid-template-columns: 1fr; }
+    .scoreArea { gap: 15px; }
+}
+</style>
 </head>
 
 <body>
-    <div class="container">
 
-        <div class="brand">⬡ LinkSentry</div>
+<header>
+    <div class="logo">Link<span>Sentry</span></div>
+    <div class="status">● SYSTEM ONLINE</div>
+</header>
 
-        <section class="hero">
-            <h1>Is your URL <span>safe?</span></h1>
-            <p>Analyze suspicious links and identify potential security risks.</p>
-        </section>
+<main>
+    <section class="hero">
+        <div class="eyebrow">URL SECURITY INTELLIGENCE</div>
+        <h1>Think Before You <span style="color:var(--green)">Click.</span></h1>
+        <p class="subtitle">
+            Analyze suspicious URLs and identify potential security warning signs.
+        </p>
+    </section>
 
-        <section class="scanner">
-            <input
-                type="text"
-                id="urlInput"
-                placeholder="https://example.com"
-            >
+    <form class="scanner" id="scanForm">
+        <input id="urlInput" type="text"
+            placeholder="Paste a URL to analyze..."
+            autocomplete="url" required>
+        <button id="scanBtn" type="submit">Analyze URL →</button>
+    </form>
 
-            <button id="scanButton" onclick="scanURL()">
-                Scan URL →
-            </button>
+    <div id="error" class="error"></div>
 
-            <p id="status">Enter a URL to begin security analysis.</p>
-
-            <div class="result" id="result">
-                <h2>Security Report</h2>
-                <p>Risk Score</p>
-                <div class="score" id="score">0/100</div>
-                <p id="riskLevel"></p>
-
-                <div class="issues" id="issues"></div>
-            </div>
-        </section>
-
-        <div class="footer">
-            LinkSentry — Educational URL Security Analysis Tool
+    <section id="result" class="panel hidden">
+        <div class="resultTop">
+            <h2>Security Analysis</h2>
+            <span id="riskBadge" class="riskBadge">LOW RISK</span>
         </div>
-    </div>
 
-    <script>
-        async function scanURL() {
-            const url = document.getElementById("urlInput").value.trim();
-            const status = document.getElementById("status");
-            const resultBox = document.getElementById("result");
-            const button = document.getElementById("scanButton");
+        <div class="scoreArea">
+            <div class="scoreCircle" id="scoreCircle">
+                <div class="scoreNumber" id="scoreNumber">0</div>
+            </div>
+            <div>
+                <h3 id="riskTitle">Analysis complete</h3>
+                <p class="scoreText" id="riskDescription">
+                    Review the findings below.
+                </p>
+            </div>
+        </div>
 
-            if (!url) {
-                status.textContent = "Please enter a URL first.";
-                return;
-            }
+        <h3 class="sectionTitle">URL INFORMATION</h3>
+        <div class="detailsGrid" id="detailsGrid"></div>
 
-            button.disabled = true;
-            button.textContent = "Analyzing...";
-            status.textContent = "Scanning URL patterns...";
-            resultBox.style.display = "none";
+        <h3 class="sectionTitle">SECURITY FINDINGS</h3>
+        <div id="findingsList"></div>
 
-            try {
-                const response = await fetch("/scan", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ url: url })
-                });
+        <div class="actions">
+            <button class="secondary" id="copyBtn" type="button">
+                Copy Report
+            </button>
+            <button class="secondary" id="newScanBtn" type="button">
+                New Scan
+            </button>
+        </div>
+    </section>
 
-                const data = await response.json();
+    <section class="panel" id="historyPanel">
+        <div class="resultTop">
+            <h3 style="margin:0">Recent Scans</h3>
+            <button class="secondary" id="clearHistory" type="button">
+                Clear History
+            </button>
+        </div>
+        <div id="historyList"></div>
+    </section>
+</main>
 
-                if (!response.ok) {
-                    throw new Error(data.error || "Scan failed");
-                }
+<footer>
+    LinkSentry Security Scanner · Built for safer browsing<br><br>
+    Educational URL analysis tool. Results are indicators, not a guarantee of safety.
+</footer>
 
-                document.getElementById("score").textContent =
-                    data.risk_score + "/100";
+<script>
+const form = document.getElementById("scanForm");
+const input = document.getElementById("urlInput");
+const button = document.getElementById("scanBtn");
+const resultBox = document.getElementById("result");
+const errorBox = document.getElementById("error");
 
-                document.getElementById("riskLevel").textContent =
-                    "Risk Level: " + data.risk_level;
+let latestReport = null;
 
-                const issues = document.getElementById("issues");
-                issues.replaceChildren();
+function showError(message) {
+    errorBox.textContent = message;
+}
 
-                if (data.issues.length === 0) {
-                    issues.textContent = "No suspicious patterns detected.";
-                } else {
-                    data.issues.forEach(issue => {
-                        const item = document.createElement("p");
-                        item.textContent = "• " + issue;
-                        issues.appendChild(item);
-                    });
-                }
+function makeDetail(label, value) {
+    const box = document.createElement("div");
+    box.className = "detail";
 
-                resultBox.style.display = "block";
-                status.textContent = "Analysis complete.";
+    const small = document.createElement("small");
+    small.textContent = label;
 
-            } catch (error) {
-                status.textContent = error.message;
-            } finally {
-                button.disabled = false;
-                button.textContent = "Scan URL →";
-            }
+    const strong = document.createElement("strong");
+    strong.textContent = value ?? "Not available";
+
+    box.append(small, strong);
+    return box;
+}
+
+function renderResult(data) {
+    latestReport = data;
+
+    const score = Math.max(0, Math.min(100, Number(data.risk_score) || 0));
+    const level = String(data.risk_level || "Low").toLowerCase();
+
+    document.getElementById("scoreNumber").textContent = score;
+
+    const color = level === "high" ? "#ff647c" :
+                  level === "medium" ? "#ffc66d" : "#43e0b0";
+
+    document.getElementById("scoreCircle").style.background =
+        `conic-gradient(${color} ${score * 3.6}deg, #26394c 0deg)`;
+
+    const badge = document.getElementById("riskBadge");
+    badge.className = "riskBadge " + level;
+    badge.textContent = level.toUpperCase() + " RISK";
+
+    document.getElementById("riskTitle").textContent =
+        level === "high" ? "High risk indicators detected" :
+        level === "medium" ? "Some warning signs detected" :
+        "Few warning signs detected";
+
+    document.getElementById("riskDescription").textContent =
+        "Risk score: " + score + "/100. Higher scores indicate more warning signs.";
+
+    const details = data.details || {};
+    const grid = document.getElementById("detailsGrid");
+    grid.replaceChildren();
+
+    [
+        ["Hostname", details.hostname],
+        ["Protocol", details.protocol],
+        ["Port", details.port],
+        ["Path", details.path],
+        ["Query string", details.query_present ? "Present" : "Not present"],
+        ["Fragment", details.fragment_present ? "Present" : "Not present"]
+    ].forEach(([label, value]) => {
+        grid.appendChild(makeDetail(label, value));
+    });
+
+    const list = document.getElementById("findingsList");
+    list.replaceChildren();
+
+    const findings = data.findings || (data.issues || []).map(message => ({
+        message,
+        severity: "medium"
+    }));
+
+    if (!findings.length) {
+        const safe = document.createElement("div");
+        safe.className = "finding";
+        safe.textContent = "No suspicious indicators detected by this scanner.";
+        list.appendChild(safe);
+    }
+
+    findings.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "finding";
+
+        const message = document.createElement("span");
+        message.textContent = item.message || "Finding";
+
+        const severity = document.createElement("span");
+        const safeSeverity = ["high", "medium", "low"].includes(
+            String(item.severity).toLowerCase()
+        ) ? String(item.severity).toLowerCase() : "medium";
+
+        severity.className = "severity " + safeSeverity;
+        severity.textContent = safeSeverity;
+
+        row.append(message, severity);
+        list.appendChild(row);
+    });
+
+    resultBox.classList.remove("hidden");
+    saveHistory(data);
+}
+
+async function scanUrl(url) {
+    showError("");
+    resultBox.classList.add("hidden");
+    button.disabled = true;
+    button.textContent = "Analyzing...";
+
+    try {
+        const response = await fetch("/scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Unable to analyze this URL.");
         }
-    </script>
+
+        renderResult(data);
+    } catch (error) {
+        showError(error.message || "Server connection failed. Please try again.");
+    } finally {
+        button.disabled = false;
+        button.textContent = "Analyze URL →";
+    }
+}
+
+form.addEventListener("submit", event => {
+    event.preventDefault();
+
+    const url = input.value.trim();
+
+    if (!url) {
+        showError("Please enter a URL first.");
+        return;
+    }
+
+    scanUrl(url);
+});
+
+function getHistory() {
+    try {
+        return JSON.parse(localStorage.getItem("linksentry_history") || "[]");
+    } catch {
+        return [];
+    }
+}
+
+function saveHistory(data) {
+    const history = getHistory();
+
+    history.unshift({
+        url: data.url,
+        score: data.risk_score,
+        level: data.risk_level,
+        time: new Date().toLocaleString()
+    });
+
+    localStorage.setItem(
+        "linksentry_history",
+        JSON.stringify(history.slice(0, 8))
+    );
+
+    renderHistory();
+}
+
+function renderHistory() {
+    const list = document.getElementById("historyList");
+    list.replaceChildren();
+
+    const history = getHistory();
+
+    if (!history.length) {
+        const empty = document.createElement("p");
+        empty.className = "scoreText";
+        empty.textContent = "Your recent scans will appear here.";
+        list.appendChild(empty);
+        return;
+    }
+
+    history.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "historyItem";
+
+        const url = document.createElement("span");
+        url.className = "historyUrl";
+        url.textContent = item.url;
+
+        const score = document.createElement("strong");
+        score.textContent = `${item.level} · ${item.score}/100`;
+
+        row.append(url, score);
+        list.appendChild(row);
+    });
+}
+
+document.getElementById("clearHistory").addEventListener("click", () => {
+    localStorage.removeItem("linksentry_history");
+    renderHistory();
+});
+
+document.getElementById("newScanBtn").addEventListener("click", () => {
+    input.value = "";
+    resultBox.classList.add("hidden");
+    input.focus();
+});
+
+document.getElementById("copyBtn").addEventListener("click", async () => {
+    if (!latestReport) return;
+
+    const report = [
+        "LinkSentry Security Report",
+        "URL: " + latestReport.url,
+        "Risk Score: " + latestReport.risk_score + "/100",
+        "Risk Level: " + latestReport.risk_level,
+        "Findings:",
+        ...(latestReport.issues || []).map(issue => "- " + issue)
+    ].join("\n");
+
+    try {
+        await navigator.clipboard.writeText(report);
+        document.getElementById("copyBtn").textContent = "Copied!";
+        setTimeout(() => {
+            document.getElementById("copyBtn").textContent = "Copy Report";
+        }, 1500);
+    } catch {
+        showError("Clipboard access unavailable in this browser.");
+    }
+});
+
+renderHistory();
+</script>
+
 </body>
 </html>
