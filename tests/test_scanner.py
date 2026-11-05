@@ -7,13 +7,13 @@ from analyzer.scanner import scan_url
 
 
 def test_safe_url():
-    result = scan_url("https://example.com")
+    result = scan_url("https://google.com")
     assert result["risk_level"] == "Low"
 
 
 def test_http_url():
     result = scan_url("http://example.com")
-    assert result["risk_score"] >= 15
+    assert "HTTPS is not used" in result["issues"]
 
 
 def test_ip_address():
@@ -23,9 +23,20 @@ def test_ip_address():
 
 def test_suspicious_keyword():
     result = scan_url("https://example.com/login")
-    assert any("login" in issue for issue in result["issues"])
+    assert any("Suspicious keyword" in issue for issue in result["issues"])
 
 
 def test_risk_score_limit():
-    result = scan_url("http://192.168.1.1/login/verify")
-    assert 0 <= result["risk_score"] <= 100
+    result = scan_url("http://192.168.1.1/login")
+    assert result["risk_score"] <= 100
+
+
+def test_redirect_parameter():
+    result = scan_url(
+        "https://example.com/login?redirect=https://example.org"
+    )
+
+    assert any(
+        "Redirect parameter detected" in finding["message"]
+        for finding in result["findings"]
+    )

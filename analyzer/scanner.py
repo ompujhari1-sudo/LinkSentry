@@ -1,7 +1,7 @@
 
 import ipaddress
 import re
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, parse_qsl
 
 
 SHORTENERS = {
@@ -13,17 +13,28 @@ SHORTENERS = {
 SUSPICIOUS_WORDS = {
     "password", "verify", "account-suspended",
     "wallet-connect", "signin", "credential",
-    "confirm-account", "login"
+    "confirm-account", "login", "register",
+    "reset-password", "banking", "seed-phrase"
+}
+
+REDIRECT_PARAMETERS = {
+    "redirect", "redirect_url", "return", "return_url",
+    "next", "continue", "url", "target"
 }
 
 
 def scan_url(url):
+    original_url = url
     issues = []
     findings = []
     score = 0
 
     def add_finding(message, points, severity):
         nonlocal score
+
+        if message in issues:
+            return
+
         issues.append(message)
         findings.append({
             "message": message,
@@ -34,7 +45,7 @@ def scan_url(url):
 
     def result(level, details=None):
         return {
-            "url": url,
+            "url": original_url,
             "risk_score": min(score, 100),
             "risk_level": level,
             "issues": issues,
@@ -49,21 +60,29 @@ def scan_url(url):
     url = url.strip()
 
     if len(url) > 4096:
-        add_finding("URL is unusually long", 15, "medium")
-        return result("Low")
+        add_finding("URL exceeds the supported length", 25, "medium")
+        return result("Medium")
 
     if any(ord(char) < 32 for char in url):
         add_finding("URL contains control characters", 20, "medium")
-
-    if not re.match(r"^https?://", url, re.IGNORECASE):
-        url = "https://" + url
+        return result("Medium")
 
     try:
+        initial = urlsplit(url)
+
+        if initial.scheme and initial.scheme.lower() not in ("http", "https"):
+            add_finding("Unsupported URL protocol", 40, "high")
+            return result("High")
+
+        if not initial.scheme:
+            url = "https://" + url
+
         parsed = urlsplit(url)
-        hostname = (parsed.hostname or "").lower()
+        hostname = (parsed.hostname or "").lower().rstrip(".")
         port = parsed.port
+
     except ValueError:
-        add_finding("Invalid URL format", 40, "high")
+        add_finding("Invalid URL format or port", 40, "high")
         return result("High")
 
     if not hostname:
@@ -79,63 +98,167 @@ def scan_url(url):
         "fragment_present": bool(parsed.fragment)
     }
 
-    if parsed.scheme.lower() not in ("http", "https"):
-        add_finding("Unsupported URL protocol", 30, "high")
-
+    # HTTPS check
     if parsed.scheme.lower() != "https":
         add_finding("HTTPS is not used", 15, "medium")
 
+    # URL credentials check
     if "@" in parsed.netloc:
-        add_finding("URL contains an @ symbol", 20, "high")
+        add_finding(
+            "URL contains an @ symbol, which can hide the actual hostname",
+            20,
+            "high"
+        )
 
+    # IP address check
     try:
-        ipaddress.ip_address(hostname)
+        ip = ipaddress.ip_address(hostname)
+
         add_finding("IP address used as hostname", 25, "high")
 
-        if not ipaddress.ip_address(hostname).is_global:
+        if not ip.is_global:
             add_finding("Non-public IP address detected", 20, "high")
 
     except ValueError:
-        labels = hostname.split(".")
+        # Punycode check
+        if "xn--" in hostname:
+            add_finding(
+                "Punycode domain detected; inspect for lookalike characters",
+                15,
+                "medium"
+            )
 
-        if len(labels) < 2:
-            add_finding("Hostname has no recognizable domain extension", 15, "medium")
+        try:
+            ascii_hostname = hostname.encode("idna").decode("ascii")
+        except UnicodeError:
+            ascii_hostname = ""
 
-        if any(
-            not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
-            for label in labels
-        ):
-            add_finding("Hostname contains suspicious characters", 20, "high")
+        if not ascii_hostname:
+            add_finding(
+                "Hostname contains invalid international characters",
+                30,
+                "high"
+            )
+        else:
+            labels = ascii_hostname.split(".")
+            label_pattern = r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
 
-    if hostname in SHORTENERS:
+            if len(labels) < 2:
+                add_finding(
+                    "Hostname has no recognizable domain extension",
+                    15,
+                    "medium"
+                )
+
+            if any(
+                not re.fullmatch(label_pattern, label)
+                for label in labels
+            ):
+                add_finding(
+                    "Hostname contains suspicious characters",
+                    20,
+                    "high"
+                )
+
+            if any(len(label) > 63 for label in labels):
+                add_finding(
+                    "Hostname contains an unusually long domain label",
+                    15,
+                    "medium"
+                )
+
+    # Localhost check
+    if hostname in ("localhost", "localhost.localdomain"):
+        add_finding("Localhost address detected", 15, "medium")
+
+    # URL shortener check
+    if any(
+        hostname == domain or hostname.endswith("." + domain)
+        for domain in SHORTENERS
+    ):
         add_finding(
             "URL shortener detected; final destination is unknown",
             20,
             "medium"
         )
 
+    # Subdomain check
     if hostname.count(".") > 4:
-        add_finding("Unusually many subdomains detected", 15, "medium")
+        add_finding(
+            "Unusually many subdomains detected",
+            15,
+            "medium"
+        )
 
+    # Port check
     if port and port not in (80, 443):
         add_finding("Non-standard port detected", 10, "medium")
 
+    # Decode URL for analysis
     decoded_url = unquote(url).lower()
 
+    # Suspicious keyword check
+    detected_words = []
+
     for word in SUSPICIOUS_WORDS:
-        if word in decoded_url:
-            add_finding(
-                f"Suspicious keyword detected: {word}",
-                10,
-                "medium"
-            )
+        if re.search(
+            r"(?<![a-z0-9])" + re.escape(word) + r"(?![a-z0-9])",
+            decoded_url
+        ):
+            detected_words.append(word)
 
+    for word in detected_words:
+        add_finding(
+            f"Suspicious keyword detected: {word}",
+            10,
+            "medium"
+        )
+
+    # Login and registration path check
+    if re.search(
+        r"/(login|signin|register|signup)(?:/|$)",
+        parsed.path.lower()
+    ):
+        add_finding(
+            "Account login or registration page detected; "
+            "verify the domain before entering credentials",
+            10,
+            "low"
+        )
+
+    # Encoded characters check
     if re.search(r"%[0-9a-fA-F]{2}", url):
-        add_finding("URL contains encoded characters", 5, "low")
+        add_finding(
+            "URL contains encoded characters",
+            5,
+            "low"
+        )
 
+    # Long path check
     if len(parsed.path) > 150:
-        add_finding("Unusually long URL path", 10, "medium")
+        add_finding(
+            "Unusually long URL path",
+            10,
+            "medium"
+        )
 
+    # Redirect parameter check
+    query_keys = {
+        key.lower()
+        for key, value in parse_qsl(
+            parsed.query,
+            keep_blank_values=True
+        )
+    }
+
+    if REDIRECT_PARAMETERS.intersection(query_keys):
+        add_finding(
+            "Redirect parameter detected; destination should be checked",
+            10,
+            "medium"
+        )
+
+    # Final score
     score = min(score, 100)
 
     if score >= 60:
