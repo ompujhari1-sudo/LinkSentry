@@ -40,3 +40,26 @@ def test_redirect_parameter():
         "Redirect parameter detected" in finding["message"]
         for finding in result["findings"]
     )
+def test_invalid_hostname():
+    result = scan_url("https://bad_domain.com")
+    assert "Hostname contains suspicious characters" in result["issues"]
+
+
+def test_leading_hyphen_hostname():
+    result = scan_url("https://-bad.com")
+    assert "Hostname contains suspicious characters" in result["issues"]
+
+
+def test_trailing_hyphen_hostname():
+    result = scan_url("https://bad-.com")
+    assert "Hostname contains suspicious characters" in result["issues"]
+
+
+def test_safe_domain_has_no_findings():
+    result = scan_url("https://google.com")
+    assert result["risk_level"] == "Low"
+
+
+def test_shortener_detection():
+    result = scan_url("https://bit.ly/example")
+    assert any("URL shortener detected" in issue for issue in result["issues"])

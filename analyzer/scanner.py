@@ -113,7 +113,6 @@ def scan_url(url):
     # IP address check
     try:
         ip = ipaddress.ip_address(hostname)
-
         add_finding("IP address used as hostname", 25, "high")
 
         if not ip.is_global:
@@ -167,6 +166,13 @@ def scan_url(url):
                     "medium"
                 )
 
+            if len(ascii_hostname) > 253:
+                add_finding(
+                    "Hostname exceeds the maximum supported length",
+                    25,
+                    "medium"
+                )
+
     # Localhost check
     if hostname in ("localhost", "localhost.localdomain"):
         add_finding("Localhost address detected", 15, "medium")
@@ -194,10 +200,9 @@ def scan_url(url):
     if port and port not in (80, 443):
         add_finding("Non-standard port detected", 10, "medium")
 
-    # Decode URL for analysis
+    # Decode URL for keyword analysis
     decoded_url = unquote(url).lower()
 
-    # Suspicious keyword check
     detected_words = []
 
     for word in SUSPICIOUS_WORDS:
@@ -212,26 +217,6 @@ def scan_url(url):
             f"Suspicious keyword detected: {word}",
             10,
             "medium"
-        )
-
-    # Login and registration path check
-    if re.search(
-        r"/(login|signin|register|signup)(?:/|$)",
-        parsed.path.lower()
-    ):
-        add_finding(
-            "Account login or registration page detected; "
-            "verify the domain before entering credentials",
-            10,
-            "low"
-        )
-
-    # Encoded characters check
-    if re.search(r"%[0-9a-fA-F]{2}", url):
-        add_finding(
-            "URL contains encoded characters",
-            5,
-            "low"
         )
 
     # Long path check
